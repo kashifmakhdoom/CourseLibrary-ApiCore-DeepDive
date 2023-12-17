@@ -7,6 +7,7 @@ using CourseLibrary.API.QueryParams;
 using CourseLibrary.API.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.Net.Http.Headers;
 using System.Dynamic;
 using System.Text.Json;
 
@@ -124,11 +125,24 @@ public class AuthorsController : ControllerBase
         //.Project(queryParams.Fields));
     }
 
+    [Produces("application/json", "application/vnd.marvin.hateoas+json")]
     [HttpGet("{authorId}", Name = "GetAuthor")]
-    //public async Task<ActionResult<AuthorDto>> GetAuthor(Guid authorId)
     public async Task<IActionResult> GetAuthor(Guid authorId,
-        string? fields)
+        string? fields,
+        [FromHeader(Name ="Accept")] string? mediaType)
     {
+
+        //Check if inputted media type is valid media type
+        if(!MediaTypeHeaderValue.TryParse(mediaType, out var parsedMediaType))
+        {
+            return BadRequest(
+                _problemDetailsFactory.CreateProblemDetails(HttpContext,
+                statusCode: 400,
+                detail: $"Accept header media type value is not a valid media type"
+            ));
+        }
+
+
         if (!_propertyCheckerService.TypeHasProperties<AuthorDto>
               (fields))
         {
@@ -147,20 +161,23 @@ public class AuthorsController : ControllerBase
             return NotFound();
         }
 
-        // Create links
-        var links = CreateLinksForAuthor(authorId, fields);
+        if (parsedMediaType.MediaType == "application/vnd.marvin.hateoas+json")
+        {
+            // Create links
+            var links = CreateLinksForAuthor(authorId, fields);
 
-        // Add links
-        var linkedResourceToReturn = _mapper.Map<AuthorDto>(authorFromRepo)
-            .Project(fields) as IDictionary<string, object?>;
-        linkedResourceToReturn.Add("links", links);
+            // Add links
+            var linkedResourceToReturn = _mapper.Map<AuthorDto>(authorFromRepo)
+                .Project(fields) as IDictionary<string, object?>;
+            linkedResourceToReturn.Add("links", links);
 
-        // Return author with links
-        return Ok(linkedResourceToReturn);
-
+            // Return author with links
+            return Ok(linkedResourceToReturn);
+        }
+       
         // Return author
-        //return Ok(_mapper.Map<AuthorDto>(authorFromRepo)
-            //.Project(fields));
+        return Ok(_mapper.Map<AuthorDto>(authorFromRepo)
+            .Project(fields));
     }
 
     [HttpPost(Name = "CreateAuthor")]
