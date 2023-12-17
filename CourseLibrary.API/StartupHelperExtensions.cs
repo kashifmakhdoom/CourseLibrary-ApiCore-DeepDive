@@ -89,7 +89,16 @@ internal static class StartupHelperExtensions
         builder.Services.AddAutoMapper(
             AppDomain.CurrentDomain.GetAssemblies());
 
-        builder.Services.AddResponseCaching();
+        //builder.Services.AddResponseCaching();
+        builder.Services.AddHttpCacheHeaders((expirationModelOptions) =>
+        {
+            expirationModelOptions.MaxAge = 60;
+            expirationModelOptions.CacheLocation = 
+                Marvin.Cache.Headers.CacheLocation.Private;
+        }, 
+        (validationModelOptions) => {
+            validationModelOptions.MustRevalidate = true;
+        });
 
         return builder.Build();
     }
@@ -113,7 +122,8 @@ internal static class StartupHelperExtensions
             });
         }
 
-        app.UseResponseCaching();
+        //app.UseResponseCaching();
+        app.UseHttpCacheHeaders();
 
         app.UseAuthorization();
 
